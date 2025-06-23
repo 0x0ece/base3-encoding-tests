@@ -99,19 +99,19 @@ pub fn encode(
         .zip(bit_vec_fallback.chunks(BASE3_SYMBOL_PER_CHUNK))
     {
         let mut block_num: u8 = 0;
+        let mut power_of_3: u8 = 1;
 
         for (base_bit, fallback_bit) in base_chunk.iter().zip(fallback_chunk.iter()) {
             let chunk_num = match (*base_bit, *fallback_bit) {
                 (false, false) => 0u8,
-                (true, false) => 1u8,
-                (false, true) => 2u8,
+                (true, false) => power_of_3,
+                (false, true) => 2u8 * power_of_3,
                 (true, true) => return Err(EncodeError::InvalidBitCombination),
             };
             block_num = block_num
-                .checked_mul(3)
-                .ok_or(EncodeError::ArithmeticOverflow)?
                 .checked_add(chunk_num)
                 .ok_or(EncodeError::ArithmeticOverflow)?;
+            power_of_3 *= 3;
         }
 
         result.extend_from_slice(&block_num.to_le_bytes());
@@ -187,8 +187,6 @@ pub fn decode(bytes: &[u8]) -> Result<(BitVec<u8, Lsb0>, BitVec<u8, Lsb0>), Deco
             };
             decoded_chunk_rev.push((base_bit, fallback_bit));
         }
-
-        decoded_chunk_rev.reverse();
 
         for (base_bit, fallback_bit) in decoded_chunk_rev {
             bit_vec_base.push(base_bit);
